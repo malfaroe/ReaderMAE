@@ -100,6 +100,7 @@ class ReaderActivity : AppCompatActivity() {
             }
             if (currentPage > 0) scrollToPage(currentPage)
             updateProgress()
+            hideLoading()
         }
     }
 
@@ -169,22 +170,31 @@ class ReaderActivity : AppCompatActivity() {
             "Cap ${chIdx + 1}/${book.chapters.size}  ·  ${currentPage + 1}/$totalPages"
     }
 
+    private fun showLoading(title: String = "Abriendo libro…") {
+        binding.loadingOverlay.isVisible = true
+        binding.tvLoadingTitle.text = title
+    }
+
+    private fun hideLoading() {
+        binding.loadingOverlay.isVisible = false
+    }
+
     // ── Observadores ────────────────────────────────────────────────────────
 
     private fun observeState() {
         lifecycleScope.launch {
             vm.state.collectLatest { state ->
                 when (state) {
-                    is ReaderState.Loading -> binding.progress.isVisible = true
+                    is ReaderState.Loading -> showLoading()
                     is ReaderState.Ready -> {
-                        binding.progress.isVisible = false
                         bookCache = state.book
                         binding.tvTitle.text = state.book.title
+                        binding.tvLoadingTitle.text = state.book.title
                         restorePageOnLoad = vm.savedPageIndex
                         collectChapterChanges()
                     }
                     is ReaderState.Error -> {
-                        binding.progress.isVisible = false
+                        hideLoading()
                         binding.tvTitle.text = state.message
                     }
                     else -> Unit
@@ -199,6 +209,7 @@ class ReaderActivity : AppCompatActivity() {
                 val book = bookCache ?: return@collectLatest
                 val chapter = book.chapters.getOrNull(idx) ?: return@collectLatest
                 binding.tvChapterTitle.text = chapter.title
+                showLoading(chapter.title.ifEmpty { book.title })
                 binding.webView.scrollTo(0, 0)
                 renderChapter(chapter.htmlContent)
             }
