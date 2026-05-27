@@ -66,9 +66,15 @@ class ReaderActivity : AppCompatActivity() {
     }
 
     private fun calculatePagesAndRestore(view: WebView) {
-        view.evaluateJavascript(
-            "Math.ceil(document.documentElement.scrollHeight / window.innerHeight)"
-        ) { result ->
+        // Resta el padding-bottom (300px) para no contar páginas vacías al final
+        view.evaluateJavascript("""
+            (function(){
+                var pageH = window.READER_PAGE_H || window.innerHeight;
+                var padB  = parseFloat(window.getComputedStyle(document.body).paddingBottom) || 0;
+                var h     = Math.max(1, document.documentElement.scrollHeight - padB);
+                return Math.ceil(h / pageH);
+            })()
+        """.trimIndent()) { result ->
             totalPages = result?.trim()?.toIntOrNull()?.coerceAtLeast(1) ?: 1
             currentPage = when {
                 restorePageOnLoad != null -> {
@@ -143,7 +149,7 @@ class ReaderActivity : AppCompatActivity() {
 
     private fun scrollToPage(page: Int) {
         binding.webView.evaluateJavascript(
-            "window.scrollTo(0, $page * window.innerHeight); void 0;", null
+            "window.scrollTo(0, $page * (window.READER_PAGE_H || window.innerHeight)); void 0;", null
         )
     }
 
@@ -191,28 +197,36 @@ class ReaderActivity : AppCompatActivity() {
     }
 
     private fun renderChapter(html: String) {
+        // line-height fijo en 30px (entero) para que los límites de página
+        // sean siempre múltiplos exactos de la altura de una línea → sin cortes.
+        // padding-top: 0 para que la primera línea empiece en y=0 (en la cuadrícula).
+        // Todos los márgenes de párrafo/heading son múltiplos de 30px.
         val full = """
             <!DOCTYPE html><html><head>
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <style>
                 * { box-sizing: border-box; }
-                html { background: #000; }
+                html, body { margin: 0; padding: 0; background: #000; }
                 body {
                     font-family: Georgia, 'Times New Roman', serif;
-                    font-size: 19px;
-                    line-height: 1.75;
+                    font-size: 18px;
+                    line-height: 30px;
                     color: #E8E8E8;
-                    background-color: #000000;
-                    margin: 0;
-                    padding: 28px 22px 200px 22px;
-                    word-break: break-word;
+                    padding: 0 20px 300px 20px;
                     -webkit-text-size-adjust: none;
+                    overflow-x: hidden;
                 }
-                p { text-align: justify; margin: 0 0 1em 0; }
-                h1, h2, h3 { color: #FFFFFF; font-family: Georgia, serif; line-height: 1.3; }
-                img { max-width: 100%; height: auto; display: block; margin: 12px auto; }
-                a { color: #AAAAAA; text-decoration: none; }
-            </style></head><body>
+                p  { text-align: justify; margin: 0 0 30px 0; }
+                h1 { color: #FFF; font-size: 24px; line-height: 30px; margin: 30px 0; }
+                h2 { color: #FFF; font-size: 20px; line-height: 30px; margin: 30px 0; }
+                h3 { color: #DDD; font-size: 18px; line-height: 30px; margin: 30px 0; }
+                img { max-width: 100%; height: auto; display: block; margin: 30px auto; }
+                a  { color: #AAAAAA; text-decoration: none; }
+            </style>
+            <script>
+                window.READER_PAGE_H = Math.floor(window.innerHeight / 30) * 30;
+            </script>
+            </head><body>
             $html
             </body></html>
         """.trimIndent()
