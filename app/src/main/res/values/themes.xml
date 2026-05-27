@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.ReaderMAE" parent="Theme.MaterialComponents.Dark.NoActionBar">
+    <style name="Theme.ReaderMAE" parent="Theme.MaterialComponents.DayNight.NoActionBar">
         <item name="colorPrimary">#FFFFFF</item>
         <item name="colorPrimaryVariant">#E0E0E0</item>
         <item name="colorOnPrimary">#000000</item>
