@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Libro abierto estilo Kindle -->
+    <path
+        android:fillColor="#FAF8F1"
+        android:pathData="M54,28 L32,34 L32,80 L54,74 L76,80 L76,34 Z"/>
+    <path
+        android:fillColor="#2C2C2C"
+        android:pathData="M54,28 L54,74"/>
+    <path
+        android:strokeColor="#FAF8F1"
+        android:strokeWidth="2"
+        android:pathData="M38,44 L52,44"/>
+    <path
+        android:strokeColor="#FAF8F1"
+        android:strokeWidth="2"
+        android:pathData="M38,52 L52,52"/>
+    <path
+        android:strokeColor="#FAF8F1"
+        android:strokeWidth="2"
+        android:pathData="M38,60 L52,60"/>
+    <path
+        android:strokeColor="#FAF8F1"
+        android:strokeWidth="2"
+        android:pathData="M56,44 L70,44"/>
+    <path
+        android:strokeColor="#FAF8F1"
+        android:strokeWidth="2"
+        android:pathData="M56,52 L70,52"/>
+    <path
+        android:strokeColor="#FAF8F1"
+        android:strokeWidth="2"
+        android:pathData="M56,60 L70,60"/>
+</vector>
