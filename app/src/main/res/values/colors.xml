@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="kindle_bg">#FAF8F1</color>
+    <color name="kindle_text">#1A1A1A</color>
+    <color name="kindle_bar">#F0EDE6</color>
+    <color name="black">#1C1B1F</color>
+    <color name="white">#FFFFFF</color>
+</resources>

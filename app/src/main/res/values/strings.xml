@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ReaderMAE</string>
+    <string name="subtitle">Tu lector EPUB</string>
+    <string name="open_book">Abrir libro</string>
+    <string name="toc">Índice</string>
+    <string name="prev">‹ Anterior</string>
+    <string name="next">Siguiente ›</string>
+</resources>
