@@ -28,11 +28,12 @@ class ReaderActivity : AppCompatActivity() {
     private var bookCache: EpubBook? = null
     private var uiVisible = false
 
-    // Estado de paginación (calculado por JS tras cargar cada capítulo)
+    // Estado de paginación
     private var currentPage = 0
     private var totalPages = 1
-    private var restorePageOnLoad: Int? = null   // restaurar posición guardada
-    private var goToLastPageOnLoad = false        // al ir al capítulo anterior, ir a su última página
+    private var pageHeightPx = 0        // calculado una vez por capítulo, guardado en Kotlin
+    private var restorePageOnLoad: Int? = null
+    private var goToLastPageOnLoad = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -66,16 +67,20 @@ class ReaderActivity : AppCompatActivity() {
     }
 
     private fun calculatePagesAndRestore(view: WebView) {
-        // Resta el padding-bottom (300px) para no contar páginas vacías al final
+        // Devuelve "totalPages|pageHeightPx" calculado con window.innerHeight real
+        // (se ejecuta 200ms después de onPageFinished → layout ya completo).
         view.evaluateJavascript("""
             (function(){
-                var pageH = window.READER_PAGE_H || window.innerHeight;
-                var padB  = parseFloat(window.getComputedStyle(document.body).paddingBottom) || 0;
-                var h     = Math.max(1, document.documentElement.scrollHeight - padB);
-                return Math.ceil(h / pageH);
+                var ph = Math.floor(window.innerHeight / 30) * 30;
+                if (ph <= 0) ph = window.innerHeight;
+                var h  = Math.max(1, document.documentElement.scrollHeight - 300);
+                return Math.ceil(h / ph) + '|' + ph;
             })()
         """.trimIndent()) { result ->
-            totalPages = result?.trim()?.toIntOrNull()?.coerceAtLeast(1) ?: 1
+            val clean = result?.trim()?.removeSurrounding("\"") ?: "1|0"
+            val parts = clean.split("|")
+            totalPages  = parts.getOrNull(0)?.toIntOrNull()?.coerceAtLeast(1) ?: 1
+            pageHeightPx = parts.getOrNull(1)?.toIntOrNull() ?: 0
             currentPage = when {
                 restorePageOnLoad != null -> {
                     val p = restorePageOnLoad!!.coerceAtMost(totalPages - 1)
@@ -148,9 +153,8 @@ class ReaderActivity : AppCompatActivity() {
     }
 
     private fun scrollToPage(page: Int) {
-        binding.webView.evaluateJavascript(
-            "window.scrollTo(0, $page * (window.READER_PAGE_H || window.innerHeight)); void 0;", null
-        )
+        val y = page * pageHeightPx
+        binding.webView.evaluateJavascript("window.scrollTo(0, $y); void 0;", null)
     }
 
     private fun updateProgress() {
@@ -223,9 +227,6 @@ class ReaderActivity : AppCompatActivity() {
                 img { max-width: 100%; height: auto; display: block; margin: 30px auto; }
                 a  { color: #AAAAAA; text-decoration: none; }
             </style>
-            <script>
-                window.READER_PAGE_H = Math.floor(window.innerHeight / 30) * 30;
-            </script>
             </head><body>
             $html
             </body></html>
