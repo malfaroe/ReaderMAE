@@ -67,20 +67,25 @@ class ReaderActivity : AppCompatActivity() {
     }
 
     private fun calculatePagesAndRestore(view: WebView) {
-        // Devuelve "totalPages|pageHeightPx" calculado con window.innerHeight real
-        // (se ejecuta 200ms después de onPageFinished → layout ya completo).
+        // paddingTop = innerHeight % 30  →  la última línea termina EXACTAMENTE
+        // en el borde de página y pageH = innerHeight → cero solapamiento.
         view.evaluateJavascript("""
             (function(){
-                var ph = Math.floor(window.innerHeight / 30) * 30;
-                if (ph <= 0) ph = window.innerHeight;
-                var h  = Math.max(1, document.documentElement.scrollHeight - 300);
-                return Math.ceil(h / ph) + '|' + ph;
+                var lh     = 30;
+                var innerH = window.innerHeight;
+                var padTop = innerH % lh;
+                document.body.style.paddingTop = padTop + 'px';
+                void document.body.offsetHeight;          // fuerza reflow síncrono
+                var contentH = Math.max(lh,
+                    document.documentElement.scrollHeight - padTop - 300);
+                return Math.ceil(contentH / innerH) + '|' + innerH;
             })()
         """.trimIndent()) { result ->
             val clean = result?.trim()?.removeSurrounding("\"") ?: "1|0"
             val parts = clean.split("|")
-            totalPages  = parts.getOrNull(0)?.toIntOrNull()?.coerceAtLeast(1) ?: 1
-            pageHeightPx = parts.getOrNull(1)?.toIntOrNull() ?: 0
+            totalPages   = parts.getOrNull(0)?.toIntOrNull()?.coerceAtLeast(1) ?: 1
+            pageHeightPx = parts.getOrNull(1)?.toIntOrNull()
+                               ?.takeIf { it > 0 } ?: binding.webView.height
             currentPage = when {
                 restorePageOnLoad != null -> {
                     val p = restorePageOnLoad!!.coerceAtMost(totalPages - 1)
