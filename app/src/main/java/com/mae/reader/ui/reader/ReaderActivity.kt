@@ -4,14 +4,12 @@ import android.annotation.SuppressLint
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
-import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.View
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.view.GestureDetectorCompat
 import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
 import com.mae.reader.databinding.ActivityReaderBinding
@@ -26,7 +24,6 @@ class ReaderActivity : AppCompatActivity() {
 
     private var bookCache: EpubBook? = null
     private var uiVisible = false
-    private lateinit var gestureDetector: GestureDetectorCompat
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -34,7 +31,7 @@ class ReaderActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         setupWebView()
-        setupGestures()
+        setupTapZones()
         setupTocButton()
         observeState()
 
@@ -45,39 +42,32 @@ class ReaderActivity : AppCompatActivity() {
     @SuppressLint("SetJavaScriptEnabled")
     private fun setupWebView() {
         binding.webView.apply {
-            settings.javaScriptEnabled = true
+            settings.javaScriptEnabled = false
             settings.builtInZoomControls = false
             settings.setSupportZoom(false)
-            overScrollMode = View.OVER_SCROLL_NEVER
             webViewClient = object : WebViewClient() {
                 override fun onPageFinished(view: WebView, url: String) {
-                    // no-op
+                    // Restaurar scroll guardado solo en el primer capítulo al abrir
                 }
             }
         }
     }
 
-    @SuppressLint("ClickableViewAccessibility")
-    private fun setupGestures() {
-        gestureDetector = GestureDetectorCompat(this,
-            object : GestureDetector.SimpleOnGestureListener() {
-                override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
-                    val x = e.x
-                    val w = binding.webView.width.toFloat()
-                    when {
-                        x < w * 0.25f -> vm.previousChapter()
-                        x > w * 0.75f -> vm.nextChapter()
-                        else -> toggleUi()
+    private fun setupTapZones() {
+        binding.webView.setOnTouchListener { v, event ->
+            if (event.action == MotionEvent.ACTION_UP) {
+                val x = event.x
+                val w = v.width.toFloat()
+                when {
+                    x < w * 0.25f -> { vm.previousChapter(); true }
+                    x > w * 0.75f -> { vm.nextChapter(); true }
+                    else -> {
+                        toggleUi()
+                        v.performClick()
+                        true
                     }
-                    return true
                 }
-            })
-
-        // Pasa todos los eventos al GestureDetector pero deja que el WebView
-        // maneje el scroll normalmente (return false).
-        binding.webView.setOnTouchListener { _, event ->
-            gestureDetector.onTouchEvent(event)
-            false
+            } else false
         }
     }
 
@@ -122,7 +112,6 @@ class ReaderActivity : AppCompatActivity() {
     }
 
     private fun renderChapter(html: String) {
-        binding.webView.scrollTo(0, 0)
         val full = """
             <!DOCTYPE html><html><head>
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -134,9 +123,8 @@ class ReaderActivity : AppCompatActivity() {
                     color: #1a1a1a;
                     background-color: #FAF8F1;
                     margin: 0;
-                    padding: 24px 20px 80px 20px;
+                    padding: 24px 20px 60px 20px;
                     word-break: break-word;
-                    -webkit-text-size-adjust: none;
                 }
                 p { text-align: justify; margin: 0 0 1em 0; }
                 h1, h2, h3 { font-family: Georgia, serif; line-height: 1.3; }
@@ -146,7 +134,7 @@ class ReaderActivity : AppCompatActivity() {
             $html
             </body></html>
         """.trimIndent()
-        binding.webView.loadDataWithBaseURL("about:blank", full, "text/html", "UTF-8", null)
+        binding.webView.loadDataWithBaseURL(null, full, "text/html", "UTF-8", null)
     }
 
     private fun toggleUi() {
