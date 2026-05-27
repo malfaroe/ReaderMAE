@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">ReaderMAE</string>
-    <string name="subtitle">Tu lector EPUB</string>
-    <string name="open_book">Abrir libro</string>
+    <string name="open_book">+ Abrir libro EPUB</string>
     <string name="toc">Índice</string>
-    <string name="prev">‹ Anterior</string>
-    <string name="next">Siguiente ›</string>
+    <string name="prev">‹</string>
+    <string name="next">›</string>
+    <string name="empty_library">No hay libros en tu biblioteca.\nToca el botón para abrir un EPUB.</string>
 </resources>

@@ -31,7 +31,12 @@ class ReaderViewModel(app: Application) : AndroidViewModel(app) {
     private val _chapterIndex = MutableStateFlow(0)
     val chapterIndex: StateFlow<Int> = _chapterIndex
 
-    private var bookPath: String = ""
+    var savedPageIndex: Int = 0
+        private set
+
+    private var bookPath = ""
+    private var bookTitle = ""
+    private var bookAuthor = ""
 
     fun loadBook(uri: Uri) {
         viewModelScope.launch(Dispatchers.IO) {
@@ -39,19 +44,22 @@ class ReaderViewModel(app: Application) : AndroidViewModel(app) {
             runCatching { parser.parse(uri) }
                 .onSuccess { book ->
                     bookPath = uri.toString()
+                    bookTitle = book.title
+                    bookAuthor = book.author
                     val saved = dao.get(bookPath)
                     _chapterIndex.value = saved?.chapterIndex ?: 0
+                    savedPageIndex = saved?.pageIndex ?: 0
                     _state.value = ReaderState.Ready(book)
                 }
-                .onFailure { _state.value = ReaderState.Error(it.message ?: "Error al abrir el libro") }
+                .onFailure {
+                    _state.value = ReaderState.Error(it.message ?: "Error al abrir el libro")
+                }
         }
     }
 
     fun nextChapter() {
         val book = (state.value as? ReaderState.Ready)?.book ?: return
-        if (_chapterIndex.value < book.chapters.lastIndex) {
-            _chapterIndex.value++
-        }
+        if (_chapterIndex.value < book.chapters.lastIndex) _chapterIndex.value++
     }
 
     fun previousChapter() {
@@ -62,10 +70,18 @@ class ReaderViewModel(app: Application) : AndroidViewModel(app) {
         _chapterIndex.value = index
     }
 
-    fun savePosition(scrollY: Int) {
+    fun savePosition(pageIndex: Int) {
         if (bookPath.isEmpty()) return
         viewModelScope.launch(Dispatchers.IO) {
-            dao.save(ReadingPosition(bookPath, _chapterIndex.value, scrollY))
+            dao.save(
+                ReadingPosition(
+                    bookPath = bookPath,
+                    bookTitle = bookTitle,
+                    bookAuthor = bookAuthor,
+                    chapterIndex = _chapterIndex.value,
+                    pageIndex = pageIndex
+                )
+            )
         }
     }
 }

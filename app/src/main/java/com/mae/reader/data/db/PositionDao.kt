@@ -17,4 +17,7 @@ interface PositionDao {
 
     @Query("SELECT * FROM reading_positions ORDER BY lastOpened DESC")
     suspend fun getAll(): List<ReadingPosition>
+
+    @Query("DELETE FROM reading_positions WHERE bookPath = :path")
+    suspend fun delete(path: String)
 }
