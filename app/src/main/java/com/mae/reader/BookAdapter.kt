@@ -1,5 +1,7 @@
 package com.mae.reader
 
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.DiffUtil
@@ -25,11 +27,19 @@ class BookAdapter(
         RecyclerView.ViewHolder(b.root) {
 
         fun bind(item: ReadingPosition) {
-            b.tvTitle.text = item.bookTitle.ifEmpty { "Sin título" }
-            b.tvAuthor.text = item.bookAuthor.ifEmpty { "Autor desconocido" }
+            b.tvTitle.text    = item.bookTitle.ifEmpty { "Sin título" }
+            b.tvAuthor.text   = item.bookAuthor.ifEmpty { "Autor desconocido" }
             b.tvProgress.text = "Cap. ${item.chapterIndex + 1}  ·  Pág. ${item.pageIndex + 1}"
-            b.root.setOnClickListener { onItemClick(item) }
-            b.root.setOnLongClickListener { onItemDelete(item); true }
+
+            val bmp = item.coverPath?.let { loadCover(it) }
+            if (bmp != null) {
+                b.ivCover.setImageBitmap(bmp)
+            } else {
+                b.ivCover.setImageDrawable(null)   // muestra solo el fondo #1E1E1E
+            }
+
+            b.root.setOnClickListener      { onItemClick(item) }
+            b.root.setOnLongClickListener  { onItemDelete(item); true }
         }
     }
 
@@ -38,6 +48,20 @@ class BookAdapter(
             override fun areItemsTheSame(a: ReadingPosition, b: ReadingPosition) =
                 a.bookPath == b.bookPath
             override fun areContentsTheSame(a: ReadingPosition, b: ReadingPosition) = a == b
+        }
+
+        // Decodifica la imagen reducida al tamaño mínimo necesario (52dp ≈ 156px @ 3x)
+        private fun loadCover(path: String): Bitmap? {
+            val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeFile(path, opts)
+            if (opts.outWidth <= 0) return null
+
+            val target = 200   // px suficientes para cubrir 52dp a cualquier densidad
+            var sample = 1
+            var w = opts.outWidth
+            while (w > target * 2) { sample *= 2; w /= 2 }
+
+            return BitmapFactory.decodeFile(path, BitmapFactory.Options().apply { inSampleSize = sample })
         }
     }
 }

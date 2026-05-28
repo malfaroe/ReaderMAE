@@ -10,5 +10,6 @@ data class ReadingPosition(
     val bookAuthor: String = "",
     val chapterIndex: Int = 0,
     val pageIndex: Int = 0,
-    val lastOpened: Long = System.currentTimeMillis()
+    val lastOpened: Long = System.currentTimeMillis(),
+    val coverPath: String? = null
 )

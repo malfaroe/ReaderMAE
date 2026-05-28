@@ -4,7 +4,8 @@ data class EpubBook(
     val title: String,
     val author: String,
     val chapters: List<Chapter>,
-    val toc: List<TocEntry>
+    val toc: List<TocEntry>,
+    val coverBytes: ByteArray? = null
 )
 
 data class Chapter(

@@ -21,7 +21,7 @@ class EpubParser(private val context: Context) {
         val opfDir = opfPath.substringBeforeLast("/", "")
 
         val opfXml = entries[opfPath] ?: error("EPUB inválido: falta OPF en $opfPath")
-        val (title, author, spineIds, manifest) = parseOpf(opfXml)
+        val (title, author, spineIds, manifest, coverId) = parseOpf(opfXml)
 
         // Construir capítulos en orden del spine
         val chapters = mutableListOf<Chapter>()
@@ -53,7 +53,15 @@ class EpubParser(private val context: Context) {
             ch.copy(title = tocTitle ?: "Capítulo ${idx + 1}")
         }
 
-        return EpubBook(title = title, author = author, chapters = titled, toc = toc)
+        // Extraer bytes de la portada usando el id detectado
+        val coverBytes: ByteArray? = coverId?.let { id ->
+            manifest[id]?.let { href ->
+                val fullPath = if (opfDir.isEmpty()) href else "$opfDir/$href"
+                entries[fullPath] ?: entries[href]
+            }
+        }
+
+        return EpubBook(title = title, author = author, chapters = titled, toc = toc, coverBytes = coverBytes)
     }
 
     private fun readZipEntries(uri: Uri): Map<String, ByteArray> {
@@ -87,7 +95,8 @@ class EpubParser(private val context: Context) {
         val title: String,
         val author: String,
         val spineIds: List<String>,
-        val manifest: Map<String, String>   // id -> href
+        val manifest: Map<String, String>,   // id -> href
+        val coverId: String?
     )
 
     private fun parseOpf(opfBytes: ByteArray): OpfData {
@@ -96,12 +105,36 @@ class EpubParser(private val context: Context) {
         val title = doc.getElementsByTagName("dc:title").item(0)?.textContent?.trim() ?: "Sin título"
         val author = doc.getElementsByTagName("dc:creator").item(0)?.textContent?.trim() ?: ""
 
-        // Manifest: id -> href
+        // Manifest: id -> href; detectar portada EPUB 3 (properties="cover-image")
         val manifest = mutableMapOf<String, String>()
+        var coverId: String? = null
         doc.getElementsByTagName("item").forEachElement { el ->
-            val id = el.getAttribute("id")
+            val id   = el.getAttribute("id")
             val href = el.getAttribute("href")
-            if (id.isNotEmpty() && href.isNotEmpty()) manifest[id] = href
+            if (id.isNotEmpty() && href.isNotEmpty()) {
+                manifest[id] = href
+                if (el.getAttribute("properties").contains("cover-image")) coverId = id
+            }
+        }
+
+        // EPUB 2: <meta name="cover" content="cover-id"/>
+        if (coverId == null) {
+            doc.getElementsByTagName("meta").forEachElement { el ->
+                if (el.getAttribute("name") == "cover") {
+                    val id = el.getAttribute("content")
+                    if (manifest.containsKey(id)) coverId = id
+                }
+            }
+        }
+
+        // Fallback: item cuyo id o href contenga "cover" y sea imagen
+        val imageExts = setOf("jpg", "jpeg", "png", "webp", "gif")
+        if (coverId == null) {
+            coverId = manifest.entries.firstOrNull { (id, href) ->
+                (id.contains("cover", ignoreCase = true) ||
+                 href.contains("cover", ignoreCase = true)) &&
+                href.substringAfterLast(".").lowercase() in imageExts
+            }?.key
         }
 
         // Spine: orden de lectura
@@ -111,7 +144,7 @@ class EpubParser(private val context: Context) {
             if (idref.isNotEmpty()) spineIds.add(idref)
         }
 
-        return OpfData(title, author, spineIds, manifest)
+        return OpfData(title, author, spineIds, manifest, coverId)
     }
 
     private fun cleanHtml(bytes: ByteArray, path: String): String {

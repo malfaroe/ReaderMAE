@@ -12,6 +12,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import java.io.File
 
 sealed class ReaderState {
     object Idle : ReaderState()
@@ -22,7 +23,7 @@ sealed class ReaderState {
 
 class ReaderViewModel(app: Application) : AndroidViewModel(app) {
 
-    private val dao = AppDatabase.get(app).positionDao()
+    private val dao    = AppDatabase.get(app).positionDao()
     private val parser = EpubParser(app)
 
     private val _state = MutableStateFlow<ReaderState>(ReaderState.Idle)
@@ -34,21 +35,27 @@ class ReaderViewModel(app: Application) : AndroidViewModel(app) {
     var savedPageIndex: Int = 0
         private set
 
-    private var bookPath = ""
-    private var bookTitle = ""
-    private var bookAuthor = ""
+    private var bookPath    = ""
+    private var bookTitle   = ""
+    private var bookAuthor  = ""
+    private var bookCoverPath: String? = null
 
     fun loadBook(uri: Uri) {
         viewModelScope.launch(Dispatchers.IO) {
             _state.value = ReaderState.Loading
             runCatching { parser.parse(uri) }
                 .onSuccess { book ->
-                    bookPath = uri.toString()
-                    bookTitle = book.title
+                    bookPath   = uri.toString()
+                    bookTitle  = book.title
                     bookAuthor = book.author
+
                     val saved = dao.get(bookPath)
+                    // Reusar portada guardada o extraer del EPUB y guardar en disco
+                    bookCoverPath = saved?.coverPath?.let { if (File(it).exists()) it else null }
+                        ?: saveCover(bookPath, book.coverBytes)
+
                     _chapterIndex.value = saved?.chapterIndex ?: 0
-                    savedPageIndex = saved?.pageIndex ?: 0
+                    savedPageIndex      = saved?.pageIndex ?: 0
                     _state.value = ReaderState.Ready(book)
                 }
                 .onFailure {
@@ -75,13 +82,25 @@ class ReaderViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch(Dispatchers.IO) {
             dao.save(
                 ReadingPosition(
-                    bookPath = bookPath,
-                    bookTitle = bookTitle,
-                    bookAuthor = bookAuthor,
+                    bookPath     = bookPath,
+                    bookTitle    = bookTitle,
+                    bookAuthor   = bookAuthor,
                     chapterIndex = _chapterIndex.value,
-                    pageIndex = pageIndex
+                    pageIndex    = pageIndex,
+                    coverPath    = bookCoverPath
                 )
             )
         }
+    }
+
+    private fun saveCover(bookPath: String, bytes: ByteArray?): String? {
+        if (bytes == null) return null
+        return try {
+            val dir = File(getApplication<Application>().filesDir, "covers")
+            dir.mkdirs()
+            val file = File(dir, "${bookPath.hashCode()}.jpg")
+            if (!file.exists()) file.writeBytes(bytes)
+            file.absolutePath
+        } catch (_: Exception) { null }
     }
 }

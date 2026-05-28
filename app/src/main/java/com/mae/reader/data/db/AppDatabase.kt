@@ -6,7 +6,7 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import com.mae.reader.data.model.ReadingPosition
 
-@Database(entities = [ReadingPosition::class], version = 2, exportSchema = false)
+@Database(entities = [ReadingPosition::class], version = 3, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
 
     abstract fun positionDao(): PositionDao
