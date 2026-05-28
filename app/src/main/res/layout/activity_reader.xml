@@ -6,7 +6,7 @@
     android:layout_height="match_parent"
     android:background="#000000">
 
-    <!-- Barra superior: siempre visible, ENCIMA del WebView -->
+    <!-- Barra superior: título + botón de índice -->
     <LinearLayout
         android:id="@+id/overlayTop"
         android:layout_width="0dp"
@@ -33,18 +33,6 @@
             android:text="ReaderMAE" />
 
         <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnFontSize"
-            style="@style/Widget.MaterialComponents.Button.TextButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="18"
-            android:textColor="#AAAAAA"
-            android:textSize="13sp"
-            android:minWidth="0dp"
-            android:paddingStart="8dp"
-            android:paddingEnd="8dp" />
-
-        <com.google.android.material.button.MaterialButton
             android:id="@+id/btnToc"
             style="@style/Widget.MaterialComponents.Button.TextButton"
             android:layout_width="wrap_content"
@@ -55,7 +43,7 @@
 
     </LinearLayout>
 
-    <!-- Barra inferior: siempre visible, DEBAJO del WebView -->
+    <!-- Barra inferior: A− | ‹ | página | › | A+ -->
     <LinearLayout
         android:id="@+id/overlayBottom"
         android:layout_width="0dp"
@@ -63,11 +51,23 @@
         android:orientation="horizontal"
         android:background="#111111"
         android:gravity="center_vertical"
-        android:paddingStart="8dp"
-        android:paddingEnd="8dp"
+        android:paddingStart="4dp"
+        android:paddingEnd="4dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnFontDown"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="A−"
+            android:textColor="#666666"
+            android:textSize="13sp"
+            android:minWidth="0dp"
+            android:paddingStart="8dp"
+            android:paddingEnd="4dp" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnPrev"
@@ -97,9 +97,21 @@
             android:textColor="#AAAAAA"
             android:textSize="20sp" />
 
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnFontUp"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="A+"
+            android:textColor="#666666"
+            android:textSize="13sp"
+            android:minWidth="0dp"
+            android:paddingStart="4dp"
+            android:paddingEnd="8dp" />
+
     </LinearLayout>
 
-    <!-- WebView: entre barra superior e inferior, sin superposición -->
+    <!-- WebView: entre barra superior e inferior -->
     <WebView
         android:id="@+id/webView"
         android:layout_width="0dp"
@@ -110,7 +122,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
-    <!-- Overlay de carga: cubre la misma zona que el WebView -->
+    <!-- Overlay de carga -->
     <LinearLayout
         android:id="@+id/loadingOverlay"
         android:layout_width="0dp"

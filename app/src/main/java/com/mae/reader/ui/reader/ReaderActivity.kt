@@ -151,6 +151,43 @@ class ReaderActivity : AppCompatActivity() {
         binding.tvProgress.text = "${currentPage + 1} / $totalPages"
     }
 
+    // ── Tamaño de fuente (sin recargar la página) ──────────────────────────
+
+    private fun changeFontSize(delta: Int) {
+        val newSize = (fontSize + delta).coerceIn(14, 24)
+        if (newSize == fontSize || currentChapterHtml.isEmpty()) return
+        fontSize = newSize
+
+        // Cambia tamaño directamente en el DOM — sin reload, sin overlay, sin salto
+        val js = """
+            (function(){
+              var s=document.body.style;
+              s.fontSize='${fontSize}px';
+              document.querySelectorAll('h1').forEach(function(e){e.style.fontSize='${fontSize+6}px';});
+              document.querySelectorAll('h2').forEach(function(e){e.style.fontSize='${fontSize+2}px';});
+              document.querySelectorAll('h3').forEach(function(e){e.style.fontSize='${fontSize}px';});
+            })();void 0;
+        """.trimIndent()
+
+        binding.webView.evaluateJavascript(js) {
+            // Tras el reflow del DOM, recalcular páginas y volver a la posición actual
+            binding.webView.postDelayed({ silentRemeasure() }, 200)
+        }
+    }
+
+    private fun silentRemeasure() {
+        if (pageHeightPx <= 0) return
+        binding.webView.evaluateJavascript("document.documentElement.scrollHeight - 300") { result ->
+            val contentCss = result?.trim()?.toDoubleOrNull()?.coerceAtLeast(lineHeightCss)
+                ?: pageHeightCss
+            val contentPx = (contentCss * density).roundToInt()
+            totalPages = maxOf(1, contentPx / pageHeightPx)
+            currentPage = currentPage.coerceAtMost(totalPages - 1)
+            scrollToPage(currentPage)
+            updateProgress()
+        }
+    }
+
     // ── Navegación ────────────────────────────────────────────────────────
 
     private fun navigateNext() {
@@ -190,17 +227,8 @@ class ReaderActivity : AppCompatActivity() {
         binding.btnToc.setOnClickListener      { showTocDialog() }
         binding.btnPrev.setOnClickListener     { navigatePrevious() }
         binding.btnNext.setOnClickListener     { navigateNext() }
-        binding.btnFontSize.setOnClickListener { cycleFont() }
-        binding.btnFontSize.text               = fontSize.toString()
-    }
-
-    private fun cycleFont() {
-        fontSize = when (fontSize) { 16 -> 18; 18 -> 20; 20 -> 22; else -> 16 }
-        binding.btnFontSize.text = fontSize.toString()
-        if (currentChapterHtml.isNotEmpty()) {
-            restorePageOnLoad = currentPage
-            renderChapter(currentChapterHtml)
-        }
+        binding.btnFontDown.setOnClickListener { changeFontSize(-2) }
+        binding.btnFontUp.setOnClickListener   { changeFontSize(+2) }
     }
 
     // ── Observadores ──────────────────────────────────────────────────────
@@ -278,7 +306,7 @@ class ReaderActivity : AppCompatActivity() {
 
     private fun hideLoading() { binding.loadingOverlay.isVisible = false }
 
-    // Tap central: alterna visibilidad sin cambiar el tamaño del WebView
+    // Tap central: oculta/muestra barras sin redimensionar el WebView
     private fun toggleUi() {
         uiVisible = !uiVisible
         val vis = if (uiVisible) View.VISIBLE else View.INVISIBLE
