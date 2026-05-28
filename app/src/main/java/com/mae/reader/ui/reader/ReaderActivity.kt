@@ -121,11 +121,13 @@ class ReaderActivity : AppCompatActivity() {
     private fun measurePagesAndRestore(view: WebView) {
         if (pageHeightPx <= 0) { fitWebViewToLineGrid(); return }
 
-        view.evaluateJavascript("document.documentElement.scrollHeight - 300") { result ->
+        val paddingCss = if (pageHeightCss > 0) pageHeightCss else 300.0
+        view.evaluateJavascript("document.documentElement.scrollHeight - $paddingCss") { result ->
             val contentCss = result?.trim()?.toDoubleOrNull()?.coerceAtLeast(lineHeightCss)
                 ?: pageHeightCss
             val contentPx = (contentCss * density).roundToInt()
-            totalPages = maxOf(1, contentPx / pageHeightPx)
+            // Ceiling: asegura que el último trozo de contenido siempre tenga su propia página
+            totalPages = maxOf(1, (contentPx + pageHeightPx - 1) / pageHeightPx)
 
             currentPage = when {
                 restorePageOnLoad != null -> {
@@ -177,11 +179,12 @@ class ReaderActivity : AppCompatActivity() {
 
     private fun silentRemeasure() {
         if (pageHeightPx <= 0) return
-        binding.webView.evaluateJavascript("document.documentElement.scrollHeight - 300") { result ->
+        val paddingCss = if (pageHeightCss > 0) pageHeightCss else 300.0
+        binding.webView.evaluateJavascript("document.documentElement.scrollHeight - $paddingCss") { result ->
             val contentCss = result?.trim()?.toDoubleOrNull()?.coerceAtLeast(lineHeightCss)
                 ?: pageHeightCss
             val contentPx = (contentCss * density).roundToInt()
-            totalPages = maxOf(1, contentPx / pageHeightPx)
+            totalPages = maxOf(1, (contentPx + pageHeightPx - 1) / pageHeightPx)
             currentPage = currentPage.coerceAtMost(totalPages - 1)
             scrollToPage(currentPage)
             updateProgress()
@@ -218,7 +221,8 @@ class ReaderActivity : AppCompatActivity() {
                     return true
                 }
             })
-        binding.webView.setOnTouchListener { _, event -> gestureDetector.onTouchEvent(event); false }
+        // true: consume el evento → el WebView no puede hacer scroll táctil por sí solo
+        binding.webView.setOnTouchListener { _, event -> gestureDetector.onTouchEvent(event); true }
     }
 
     // ── Botones ───────────────────────────────────────────────────────────
@@ -270,7 +274,9 @@ class ReaderActivity : AppCompatActivity() {
     // ── Renderizado ───────────────────────────────────────────────────────
 
     private fun renderChapter(html: String) {
-        val lh = if (lineHeightCss > 0) lineHeightCss else TARGET_LINE_H.toDouble()
+        val lh      = if (lineHeightCss > 0) lineHeightCss else TARGET_LINE_H.toDouble()
+        // padding-bottom = pageHeightCss garantiza que la última página siempre sea scrolleable
+        val padding = if (pageHeightCss > 0) pageHeightCss else 300.0
         val full = """
             <!DOCTYPE html><html><head>
             <meta name="viewport" content="width=device-width,initial-scale=1.0">
@@ -281,7 +287,7 @@ class ReaderActivity : AppCompatActivity() {
                 font-size:${fontSize}px;
                 line-height:${lh}px;
                 color:#E8E8E8;
-                padding:0 22px 300px 22px;
+                padding:0 22px ${padding}px 22px;
                 -webkit-text-size-adjust:none;
                 overflow-x:hidden;
               }
