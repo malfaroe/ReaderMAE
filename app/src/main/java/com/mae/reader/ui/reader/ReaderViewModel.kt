@@ -40,12 +40,35 @@ class ReaderViewModel(app: Application) : AndroidViewModel(app) {
     private var bookAuthor  = ""
     private var bookCoverPath: String? = null
 
+    private val booksDir: File by lazy {
+        File(getApplication<Application>().filesDir, "books").apply { mkdirs() }
+    }
+
+    // Copia el EPUB al almacenamiento privado de la app en el primer acceso.
+    // Evita depender del permiso otorgado sobre el content:// original, que
+    // expira (reinicio de proceso, proveedores sin soporte persistente) y
+    // provoca "Permission Denial" al reabrir el libro desde la biblioteca.
+    private fun localize(uri: Uri): Uri {
+        if (uri.scheme == "file") return uri
+        val dest = File(booksDir, "%08x.epub".format(uri.toString().hashCode()))
+        if (!dest.exists()) {
+            val app = getApplication<Application>()
+            app.contentResolver.openInputStream(uri)?.use { input ->
+                dest.outputStream().use { output -> input.copyTo(output) }
+            } ?: error("No se pudo leer el archivo EPUB")
+        }
+        return Uri.fromFile(dest)
+    }
+
     fun loadBook(uri: Uri) {
         viewModelScope.launch(Dispatchers.IO) {
             _state.value = ReaderState.Loading
-            runCatching { parser.parse(uri) }
-                .onSuccess { book ->
-                    bookPath   = uri.toString()
+            runCatching {
+                val localUri = localize(uri)
+                localUri to parser.parse(localUri)
+            }
+                .onSuccess { (localUri, book) ->
+                    bookPath   = localUri.toString()
                     bookTitle  = book.title
                     bookAuthor = book.author
 
