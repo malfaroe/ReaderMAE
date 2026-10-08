@@ -4,10 +4,12 @@ import android.annotation.SuppressLint
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.view.ActionMode
 import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.viewModels
@@ -30,6 +32,7 @@ class ReaderActivity : AppCompatActivity() {
 
     private var bookCache: EpubBook? = null
     private var uiVisible = true
+    private var selectionMode: ActionMode? = null
 
     // Física de paginación en px físicos enteros — sin drift acumulativo
     private var density = 1f
@@ -95,6 +98,7 @@ class ReaderActivity : AppCompatActivity() {
                 override fun onPageFinished(view: WebView, url: String) {
                     view.postDelayed({ measurePagesAndRestore(view) }, 250)
                 }
+                override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest) = true
             }
         }
         binding.webView.post { fitWebViewToLineGrid() }
@@ -212,6 +216,7 @@ class ReaderActivity : AppCompatActivity() {
         gestureDetector = GestureDetectorCompat(this,
             object : GestureDetector.SimpleOnGestureListener() {
                 override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
+                    if (selectionMode != null) return false
                     val x = e.x; val w = binding.webView.width.toFloat()
                     when {
                         x < w * 0.3f -> navigatePrevious()
@@ -221,8 +226,23 @@ class ReaderActivity : AppCompatActivity() {
                     return true
                 }
             })
-        // true: consume el evento → el WebView no puede hacer scroll táctil por sí solo
-        binding.webView.setOnTouchListener { _, event -> gestureDetector.onTouchEvent(event); true }
+        // Solo se bloquea el arrastre (sin scroll táctil → sin drift); toque largo llega al WebView para seleccionar texto
+        binding.webView.setOnTouchListener { _, event ->
+            gestureDetector.onTouchEvent(event)
+            event.actionMasked == MotionEvent.ACTION_MOVE && selectionMode == null
+        }
+    }
+
+    override fun onActionModeStarted(mode: ActionMode) {
+        super.onActionModeStarted(mode)
+        selectionMode = mode
+    }
+
+    override fun onActionModeFinished(mode: ActionMode) {
+        super.onActionModeFinished(mode)
+        selectionMode = null
+        // La selección puede haber desplazado el WebView; re-alinear a la página actual
+        scrollToPage(currentPage)
     }
 
     // ── Botones ───────────────────────────────────────────────────────────
