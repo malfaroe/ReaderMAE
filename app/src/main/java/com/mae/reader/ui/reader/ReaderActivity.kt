@@ -333,8 +333,11 @@ class ReaderActivity : AppCompatActivity() {
         val lh      = if (lineHeightCss > 0) lineHeightCss else TARGET_LINE_H.toDouble()
         // padding-bottom = pageHeightCss garantiza que la última página siempre sea scrolleable
         val padding = if (pageHeightCss > 0) pageHeightCss else 300.0
+        // lang habilita el corte con guión del idioma del libro; sin él, el
+        // justificado en columna angosta deja huecos grandes entre palabras
+        val lang = bookCache?.language?.replace("\"", "").orEmpty()
         val full = """
-            <!DOCTYPE html><html><head>
+            <!DOCTYPE html><html lang="$lang"><head>
             <meta name="viewport" content="width=device-width,initial-scale=1.0">
             <style>
               *,html,body{margin:0;padding:0;box-sizing:border-box;background:#000}
@@ -346,8 +349,12 @@ class ReaderActivity : AppCompatActivity() {
                 padding:0 22px ${padding}px 22px;
                 -webkit-text-size-adjust:none;
                 overflow-x:hidden;
+                hyphens:auto;-webkit-hyphens:auto;
               }
               p {text-align:justify;margin:0 0 ${lh}px 0;}
+              p,div,li,blockquote,dd{text-align:justify !important;}
+              center,[align=center],[style*="text-align:center"],[style*="text-align: center"]{text-align:center !important;}
+              [align=right],[style*="text-align:right"],[style*="text-align: right"]{text-align:right !important;}
               h1{color:#fff;font-size:${fontSize + 6}px;line-height:${lh}px;margin:${lh}px 0;}
               h2{color:#fff;font-size:${fontSize + 2}px;line-height:${lh}px;margin:${lh}px 0;}
               h3{color:#ddd;font-size:${fontSize}px;line-height:${lh}px;margin:${lh}px 0;}

@@ -21,7 +21,7 @@ class EpubParser(private val context: Context) {
         val opfDir = opfPath.substringBeforeLast("/", "")
 
         val opfXml = entries[opfPath] ?: error("EPUB inválido: falta OPF en $opfPath")
-        val (title, author, spineIds, manifest, coverId, navId) = parseOpf(opfXml)
+        val (title, author, spineIds, manifest, coverId, navId, language) = parseOpf(opfXml)
 
         // Construir capítulos en orden del spine. Se registra a qué índice de
         // `chapters` termina cada posición del spine, porque un idref sin
@@ -78,7 +78,7 @@ class EpubParser(private val context: Context) {
             }
         }
 
-        return EpubBook(title = title, author = author, chapters = titled, toc = toc, coverBytes = coverBytes)
+        return EpubBook(title = title, author = author, chapters = titled, toc = toc, coverBytes = coverBytes, language = language)
     }
 
     private fun readZipEntries(uri: Uri): Map<String, ByteArray> {
@@ -114,7 +114,8 @@ class EpubParser(private val context: Context) {
         val spineIds: List<String>,
         val manifest: Map<String, String>,   // id -> href
         val coverId: String?,
-        val navId: String?
+        val navId: String?,
+        val language: String
     )
 
     private fun parseOpf(opfBytes: ByteArray): OpfData {
@@ -122,6 +123,7 @@ class EpubParser(private val context: Context) {
 
         val title = doc.getElementsByTagName("dc:title").item(0)?.textContent?.trim() ?: "Sin título"
         val author = doc.getElementsByTagName("dc:creator").item(0)?.textContent?.trim() ?: ""
+        val language = doc.getElementsByTagName("dc:language").item(0)?.textContent?.trim() ?: ""
 
         // Manifest: id -> href; detectar portada (properties="cover-image") y
         // nav de EPUB 3 (properties="nav")
@@ -166,7 +168,7 @@ class EpubParser(private val context: Context) {
             if (idref.isNotEmpty()) spineIds.add(idref)
         }
 
-        return OpfData(title, author, spineIds, manifest, coverId, navId)
+        return OpfData(title, author, spineIds, manifest, coverId, navId, language)
     }
 
     private fun cleanHtml(bytes: ByteArray, path: String): String {
