@@ -189,12 +189,14 @@ class EpubParser(private val context: Context) {
         navPoints.forEachElement { el ->
             val label = el.getElementsByTagName("text").item(0)?.textContent?.trim() ?: return@forEachElement
             val src = (el.getElementsByTagName("content").item(0) as? Element)
-                ?.getAttribute("src")?.substringBefore("#") ?: return@forEachElement
-            val spineIdx = resolveTocTarget(ncxDir, src, hrefToSpineIndex) ?: return@forEachElement
+                ?.getAttribute("src") ?: return@forEachElement
+            val spineIdx = resolveTocTarget(ncxDir, src.substringBefore("#"), hrefToSpineIndex) ?: return@forEachElement
             val chapterIdx = spineIndexToChapterIndex[spineIdx] ?: return@forEachElement
-            if (label.isNotEmpty()) result.add(TocEntry(label, chapterIdx))
+            if (label.isNotEmpty()) result.add(TocEntry(label, chapterIdx, anchorOf(src)))
         }
-        return result.distinctBy { it.chapterIndex }
+        // Varias entradas pueden apuntar al mismo archivo (secciones o libros de
+        // un solo HTML); se conservan todas y el lector salta a cada sección
+        return result.distinct()
     }
 
     private fun parseTocNav(
@@ -208,14 +210,18 @@ class EpubParser(private val context: Context) {
         val result = mutableListOf<TocEntry>()
         (tocNav?.select("a") ?: emptyList()).forEach { a ->
             val label = a.text().trim()
-            val href = a.attr("href").substringBefore("#")
+            val rawHref = a.attr("href")
+            val href = rawHref.substringBefore("#")
             if (label.isEmpty() || href.isEmpty()) return@forEach
             val spineIdx = resolveTocTarget(navDir, href, hrefToSpineIndex) ?: return@forEach
             val chapterIdx = spineIndexToChapterIndex[spineIdx] ?: return@forEach
-            result.add(TocEntry(label, chapterIdx))
+            result.add(TocEntry(label, chapterIdx, anchorOf(rawHref)))
         }
-        return result.distinctBy { it.chapterIndex }
+        return result.distinct()
     }
+
+    private fun anchorOf(href: String): String? =
+        href.substringAfter("#", "").ifEmpty { null }
 
     // Resuelve el target de una entrada de TOC (relativo al NCX/nav) contra el
     // mapa de hrefs del spine (relativo al OPF). Si la resolución exacta falla

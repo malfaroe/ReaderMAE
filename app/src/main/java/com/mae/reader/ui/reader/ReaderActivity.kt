@@ -20,8 +20,10 @@ import androidx.core.view.updateLayoutParams
 import androidx.lifecycle.lifecycleScope
 import com.mae.reader.databinding.ActivityReaderBinding
 import com.mae.reader.epub.EpubBook
+import com.mae.reader.epub.TocEntry
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import org.json.JSONObject
 import kotlin.math.roundToInt
 
 class ReaderActivity : AppCompatActivity() {
@@ -45,6 +47,7 @@ class ReaderActivity : AppCompatActivity() {
     private var currentPage = 0
     private var restorePageOnLoad: Int? = null
     private var goToLastPageOnLoad = false
+    private var pendingTocEntry: TocEntry? = null
 
     private var fontSize = 18
     private var currentChapterHtml = ""
@@ -145,7 +148,40 @@ class ReaderActivity : AppCompatActivity() {
             if (currentPage > 0) scrollToPage(currentPage)
             updateProgress()
             hideLoading()
+            pendingTocEntry?.let { pendingTocEntry = null; jumpToTocEntry(it) }
         }
+    }
+
+    // Ubica la sección por su ancla; si la entrada no tiene (p.ej. libros de un
+    // solo HTML), busca el bloque cuyo texto es exactamente el título. La
+    // coincidencia exacta descarta el índice impreso, que lleva números de página.
+    private fun jumpToTocEntry(entry: TocEntry) {
+        val book = bookCache ?: return
+        val firstOfChapter = book.toc.first { it.chapterIndex == entry.chapterIndex } == entry
+        if (entry.anchor == null && firstOfChapter) { goToPage(0); return }
+
+        val label = if (entry.anchor == null) entry.title else ""
+        val js = """
+            (function(a,l){
+              function n(s){return s.replace(/\s+/g,' ').trim().replace(/[\s.:;,]+${'$'}/,'').toLowerCase();}
+              var e=a?document.getElementById(a):null;
+              if(!e&&l){
+                var t=n(l),bs=document.querySelectorAll('h1,h2,h3,h4,h5,h6,p,li,div');
+                for(var i=0;i<bs.length;i++){if(n(bs[i].textContent)===t){e=bs[i];break;}}
+              }
+              return e?e.getBoundingClientRect().top+window.scrollY:-1;
+            })(${JSONObject.quote(entry.anchor ?: "")},${JSONObject.quote(label)})
+        """.trimIndent()
+        binding.webView.evaluateJavascript(js) { result ->
+            val topCss = result?.toDoubleOrNull() ?: -1.0
+            goToPage(if (topCss < 0 || pageHeightPx <= 0) 0 else (topCss * density).roundToInt() / pageHeightPx)
+        }
+    }
+
+    private fun goToPage(page: Int) {
+        currentPage = page.coerceIn(0, totalPages - 1)
+        scrollToPage(currentPage)
+        updateProgress()
     }
 
     private fun scrollToPage(page: Int) {
@@ -347,9 +383,12 @@ class ReaderActivity : AppCompatActivity() {
         androidx.appcompat.app.AlertDialog.Builder(this)
             .setTitle("Índice")
             .setItems(titles) { _, which ->
+                val entry = book.toc[which]
+                if (entry.chapterIndex == vm.chapterIndex.value) { jumpToTocEntry(entry); return@setItems }
                 restorePageOnLoad  = null
                 goToLastPageOnLoad = false
-                vm.goToChapter(book.toc[which].chapterIndex)
+                pendingTocEntry    = entry
+                vm.goToChapter(entry.chapterIndex)
             }.show()
     }
 }

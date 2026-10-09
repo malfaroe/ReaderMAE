@@ -16,5 +16,6 @@ data class Chapter(
 
 data class TocEntry(
     val title: String,
-    val chapterIndex: Int
+    val chapterIndex: Int,
+    val anchor: String? = null
 )
